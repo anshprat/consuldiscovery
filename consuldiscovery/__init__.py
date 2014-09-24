@@ -1,8 +1,9 @@
-import webob
-import webob.dec
 import base64
+import json
 import requests
 import uuid
+import webob
+import webob.dec
 
 
 @webob.dec.wsgify
@@ -49,15 +50,25 @@ def app(req):
         parts = req.path.split('/')
 
         if len(parts) != 2:
-            fail()
+            return fail()
         try:
-            url = 'http://localhost:8500/v1/kv/%s' % (parts[1],)
+            token = parts[1]
+            url = 'http://localhost:8500/v1/kv/%s' % (token,)
             r = requests.get(url)
             if r.status_code != 200:
                 return fail()
             r = requests.put(url, data=req.body)
             if r.status_code == 200:
                 res.status = 200
+                url = 'http://localhost:8500/v1/catalog/register'
+                for server in json.loads(req.body):
+                    ip, port = server.split(':')
+                    data = {"Node": "%s-%s" % (token, ip),
+                            "Address": ip,
+                            "Service": {
+                                "Service": token,
+                                "Port": int(port)}}
+                    r = requests.put(url, data=json.dumps(data))
             else:
                 return fail()
             return res
